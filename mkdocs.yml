@@ -32,9 +32,16 @@ nav:
       - System Specification (SSD): architecture/SSD.md
       - Software Design (SDD): architecture/SDD.md
       - Infrastructure (ISD): architecture/ISD.md
+  - API Documentation:
+      - Swagger UI Guide: api/swagger-ui.md
   - Quality Assurance:
       - Test Strategy: quality/test-strategy.md
       - Traceability Matrix: quality/traceability-matrix.md
+  - UI Documentation:
+      - Storybook: ui/storybook.md
+  - Process:
+      - CI/CD Pipeline: ci-cd-docs.md
+      - Definition of Done: definition-of-done.md
 
 plugins:
   - search

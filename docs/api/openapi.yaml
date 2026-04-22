@@ -1,0 +1,305 @@
+openapi: 3.0.3
+
+info:
+  title: Auth Microservice API
+  description: |
+    REST API мікросервісу автентифікації користувачів.
+
+    **Роль API:** internal — використовується клієнтськими застосунками (Web SPA, Mobile)
+    та іншими мікросервісами системи для реєстрації, авторизації та управління токенами.
+
+    **Підхід:** API-first — специфікація є контрактом між backend та споживачами.
+    Будь-які зміни в API відображаються тут до внесення змін у код.
+
+    **Аутентифікація:** після отримання `accessToken` через `/login` передавайте його
+    у заголовку `Authorization: Bearer <token>` для захищених ресурсів.
+  version: 1.0.0
+  contact:
+    name: Auth Service Team
+    email: auth-team@example.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.example.com/api/v1
+    description: Production
+  - url: https://staging.example.com/api/v1
+    description: Staging
+  - url: http://localhost:3000/api/v1
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: Реєстрація, авторизація та управління JWT-токенами
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Реєстрація нового користувача
+      description: |
+        Створює новий обліковий запис. Пароль хешується алгоритмом bcrypt
+        (cost factor 12) перед збереженням. Email є унікальним ідентифікатором.
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123!
+      responses:
+        '201':
+          description: Користувача успішно зареєстровано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: user@example.com
+                createdAt: "2026-04-22T10:00:00Z"
+        '409':
+          description: Email вже зареєстровано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: CONFLICT
+                message: User with this email already exists
+        '422':
+          description: Невалідні вхідні дані
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                error: VALIDATION_ERROR
+                message: Invalid input data
+                details:
+                  - field: email
+                    message: Must be a valid email address
+                  - field: password
+                    message: Password must be at least 8 characters
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Авторизація (вхід)
+      description: |
+        Перевіряє email та пароль. У разі успіху повертає пару токенів:
+        - `accessToken` — короткоживучий (15 хв), для авторизації запитів
+        - `refreshToken` — довгоживучий (7 днів), для оновлення accessToken
+
+        Після 5 невдалих спроб IP блокується на 10 хвилин (429).
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123!
+      responses:
+        '200':
+          description: Успішна авторизація
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                accessToken: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+                refreshToken: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
+                expiresIn: 900
+        '401':
+          description: Невірні облікові дані
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: UNAUTHORIZED
+                message: Invalid email or password
+        '429':
+          description: Забагато невдалих спроб — IP заблоковано
+          headers:
+            Retry-After:
+              description: Кількість секунд до розблокування
+              schema:
+                type: integer
+                example: 600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: TOO_MANY_REQUESTS
+                message: Too many failed attempts. Try again in 10 minutes.
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Оновлення accessToken
+      description: |
+        Видає новий `accessToken` в обмін на дійсний `refreshToken`.
+        Прострочений, відкликаний або підроблений refreshToken повертає 401.
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refreshToken: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
+      responses:
+        '200':
+          description: Новий accessToken видано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+              example:
+                accessToken: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+                expiresIn: 900
+        '401':
+          description: Токен недійсний, прострочений або відкликаний
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: UNAUTHORIZED
+                message: Refresh token is expired or invalid
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT accessToken, отриманий через /auth/login
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Унікальний email користувача
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Пароль (мін. 8 символів, зберігається як bcrypt-хеш)
+          example: SecurePass123!
+
+    RegisterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Унікальний ідентифікатор користувача
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          example: SecurePass123!
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT токен для авторизації запитів (TTL 15 хв)
+        refreshToken:
+          type: string
+          description: Токен для оновлення accessToken (TTL 7 днів)
+        expiresIn:
+          type: integer
+          description: Термін дії accessToken у секундах
+          example: 900
+
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: Дійсний refreshToken
+
+    RefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Новий JWT accessToken
+        expiresIn:
+          type: integer
+          example: 900
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Машиночитаний код помилки
+          example: UNAUTHORIZED
+        message:
+          type: string
+          description: Опис помилки для розробника
+          example: Invalid email or password
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
