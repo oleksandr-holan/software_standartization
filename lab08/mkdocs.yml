@@ -1,0 +1,47 @@
+site_name: Auth Microservice Documentation
+site_description: Documentation as Code для мікросервісу автентифікації користувачів (REST API)
+site_author: Software Standardization Lab
+docs_dir: docs
+
+theme:
+  name: material
+  language: uk
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: README.md
+  - Architecture:
+      - System Specification (SSD): architecture/SSD.md
+      - Software Design (SDD): architecture/SDD.md
+      - Infrastructure (ISD): architecture/ISD.md
+  - Quality Assurance:
+      - Test Strategy: quality/test-strategy.md
+      - Traceability Matrix: quality/traceability-matrix.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - fenced_code
+  - admonition
+  - toc:
+      permalink: true
