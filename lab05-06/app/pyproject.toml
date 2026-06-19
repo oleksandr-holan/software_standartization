@@ -1,12 +1,11 @@
 [project]
-name = "lab08"
+name = "app"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mkdocs-material>=9.7.6",
+    "altair>=5.0.0",
+    "graphviz>=0.20.0",
+    "streamlit==1.28.0",
 ]
-
-[tool.uv.workspace]
-members = ["standardization/app"]
